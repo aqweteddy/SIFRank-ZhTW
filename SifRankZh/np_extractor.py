@@ -4,6 +4,7 @@ import nltk
 
 class NPExtractor:
     def __init__(self, grammar: str = None):
+        # default For CKIP
         if grammar is None:
             self.grammar = """  NP:
         {<A>*<Na|Nb|Nc|Ncd|Nes|Nv|Ng|>{1}<DE>*<Na|Nb|Nc|Ncd|Nes|Nv|Ng>{0,1}} # Adjective(s)(optional) + Noun(s)"""

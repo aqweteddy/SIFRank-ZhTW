@@ -94,6 +94,7 @@ class SIFRank:
             results.append(result)
         return results
 
+    #! args.method not in SIFRank()
     def reduce_repeat(self, candidates, scores, method='avg'):
         def find_sub_str(keys, word):
             for key in keys:
@@ -128,6 +129,7 @@ class SIFRank:
                 cand_dict[cand] = score
         return list(cand_dict.items())
 
+    #! args layer_weight not in SIFRank()
     def get_cos_dist(self, sent_embed, kp_embed, layer_weight=[0, 1, 0]):
         score = 0
         for i in range(3):
