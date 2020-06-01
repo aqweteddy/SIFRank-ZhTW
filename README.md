@@ -34,14 +34,16 @@
 
 * 從[這裡](https://github.com/HIT-SCIR/ELMoForManyLangs)下載 elmo model
 * 注意 pip install elmoformanylangs 後，要把 `elmo.py class Embedder(object)`
-"""py
+```py
 if output_layer == -1:
      payload = np.average(data, axis=0)
 else:
      payload = data[output_layer]
-"""
+```
+
 改成
-"""py
+
+```py
 if output_layer == -1:
      payload = np.average(data, axis=0)
  #code changed here
@@ -49,7 +51,8 @@ if output_layer == -1:
      payload = data
  else:
      payload = data[output_layer]
-"""
+```
+
 * 詳情可看[這裡](https://github.com/HIT-SCIR/ELMoForManyLangs/issues/31)
 
 ### Code
