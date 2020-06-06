@@ -83,8 +83,7 @@ class SIFRank:
             sent_embed, candidates_embed, candidates = sent_embed_list[
                 i], candidate_embed_list[i], candidate_list[i]
             candidates_score = []
-            result = Result(text=text, sent_embed=sent_embed)
-
+            result = Result(text=text[i], sent_embed=sent_embed)
             for cand, cand_embed in zip(candidates, candidates_embed):
                 score = self.get_cos_dist(sent_embed, cand_embed)
                 result.add_keyphrase(cand[0], cand_embed, score)
@@ -108,11 +107,14 @@ class SIFRank:
                 cand_dict[cand[0]] = []
             cand_dict[cand[0]].append(score)
 
-        for cand in cand_dict.keys():
-            key = find_sub_str(cand_dict.keys(), cand)
-            if key:
-                cand_dict[key] += cand_dict[cand]
-                cand_dict[cand] = 0.
+        # for cand in cand_dict.keys():
+        #     key = find_sub_str(cand_dict.keys(), cand)
+        #     if key:
+        #         try:
+        #             cand_dict[key].extend(cand_dict[cand])
+        #         except:
+        #             cand_dict[key].append(cand)
+        #         cand_dict[cand] = 0.
 
         for cand, score_list in cand_dict.items():
             if isinstance(cand_dict[cand], int) or not score_list:
@@ -130,13 +132,13 @@ class SIFRank:
         return list(cand_dict.items())
 
     #! args layer_weight not in SIFRank()
-    def get_cos_dist(self, sent_embed, kp_embed, layer_weight=[0, 1, 0]):
+    def get_cos_dist(self, sent_embed, kp_embed, layer_weight=[1, 1, 1]):
         score = 0
         for i in range(3):
             a, b = sent_embed[i], kp_embed[i]
             cos_sim = a@b.T / (np.linalg.norm(a) * np.linalg.norm(b))
             score += cos_sim * layer_weight[i]
-        return score
+        return score / sum(layer_weight)
 
     def get_token_pos(self, text: List[str]) -> (List[List[str]], List[List[Tuple[str]]]):
         """get tokenized word and pos

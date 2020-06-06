@@ -1,3 +1,5 @@
 .*/
 __*/
 model/
+data/
+result*.json

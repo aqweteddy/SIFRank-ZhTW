@@ -1,15 +1,19 @@
 import numpy as np
 from typing import List, Tuple
 
+
 class SentEmbedding:
-    def __init__(self, embeddor, stopword_set: set, considered_tags: set, freq_weight_file: str):
+    def __init__(self, embeddor, stopword_set: set, considered_tags: set, freq_weight_file: str, weight_type='power_mean'):
         self.embeddor = embeddor
         self.min_seq_len = 16
-        self.word2weight = self.load_weight(freq_weight_file)
+        if weight_type == 'sif':
+            self.word2weight = self.load_weight(freq_weight_file)
         self.stopword = stopword_set
         self.considered_tags = considered_tags
 
-    def get_sent_np_embedding(self, token_list: List[List[str]], token_tag_list:List[List[Tuple[str, str]]], candidate_list: List[List[Tuple[str, Tuple]]]):
+        self.weight_type = weight_type
+
+    def get_sent_np_embedding(self, token_list: List[List[str]], token_tag_list: List[List[Tuple[str, str]]], candidate_list: List[List[Tuple[str, Tuple]]]):
         """batch get sentence embedding and noun phrase embedding
 
         Arguments:
@@ -24,19 +28,29 @@ class SentEmbedding:
         embed = self.get_words_embedding(
             token_list)  # [batch_size, layers, seq_len, hidden_size]
 
-        weight_list = [self.get_weight(token) for token in token_list]
-
-        sent_embed_list = [self.get_avg_weight(
-            token_list[i], token_tag_list[i], weight_list[i], embed[i]) for i in range(len(token_list))]
-
+        if self.weight_type == 'power_mean':
+            sent_embed_list = [self.get_power_mean(
+                embed[i], token_tag_list[i], [-np.inf, 1, np.inf], len(token_list[i]))for i in range(len(token_list))]
+        elif self.weight_type == 'sif':
+            weight_list = [self.get_weight(token) for token in token_list]
+            sent_embed_list = [self.get_avg_weight(
+                token_list[i], token_tag_list[i], weight_list[i], embed[i]) for i in range(len(token_list))]
+        
         candidate_embed_list = []
         for i in range(len(candidate_list)):  # iterate article
             candidates_embed = []
             for candidate in candidate_list[i]:
                 start = candidate[1][0]  # candidate: [text, (start, end)]
                 end = candidate[1][1]
-                candidates_embed.append(self.get_np_avg_weight(
-                    token_list[i], token_tag_list[i], weight_list[i], embed[i], start, end))
+
+                if self.weight_type == 'power_mean':
+                    cand_embed = self.get_np_power_mean(
+                        embed[i], token_tag_list[i], [-np.inf, 1, np.inf], start, end)
+                elif self.weight_type == 'sif':
+                    cand_embed = self.get_np_avg_weight(
+                    token_list[i], token_tag_list[i], weight_list[i], embed[i], start, end)
+                
+                candidates_embed.append(cand_embed)
             candidate_embed_list.append(candidates_embed)
         return sent_embed_list, candidate_embed_list
 
@@ -55,6 +69,42 @@ class SentEmbedding:
             (0, 0), (0, max_len-emb.shape[1]), (0, 0)), mode='constant') for emb in embed]
         embed = np.array(embed)
         return embed
+
+    def power_mean(self, vals, p):
+        p = float(p)
+        return np.power(
+            np.mean(
+                np.power(
+                    np.array(vals, dtype=complex),
+                    p),
+                axis=0),
+            1 / p
+        )
+
+    def get_power_mean(self, embed, token_tag, p, length):
+        # length = sent_embed.shape[0]
+        result = []
+        for i in range(3):
+            tmp = []
+            for j in range(length):
+                if token_tag[j][1] in self.considered_tags:  # POS
+                    tmp.append(embed[i][j])
+            tmp = np.array(tmp)
+            tmp = self.power_mean(tmp, p[i])
+            result.append(tmp.astype(dtype=np.float32))
+        return result
+
+    def get_np_power_mean(self, embed, token_tag, p, start, end):
+        result = []
+        for i in range(3):
+            tmp = []
+            for j in range(start, end):
+                if token_tag[j][1] in self.considered_tags:  # POS
+                    tmp.append(embed[i][j])
+            tmp = np.array(tmp)
+            tmp = self.power_mean(tmp, p[i])
+            result.append(tmp.astype(dtype=np.float32))
+        return result
 
     def get_np_avg_weight(self, token, token_tag, sent_weight, embed, start, end):
         """get noun phrase avg. weights using SIF
@@ -77,7 +127,7 @@ class SentEmbedding:
             for j in range(start, end):
                 if token_tag[j][1] in self.considered_tags:  # POS
                     avg[i] += embed[i][j] * sent_weight[j]  # [1024] * [1]
-            avg[i] = avg[i] / float(length)
+            avg[i] = avg[i] / float(end - start)
         return avg
 
     def get_avg_weight(self, token, token_tag, sent_weight, embed):

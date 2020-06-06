@@ -4,7 +4,7 @@ import numpy as np
 class Result:
     def __init__(self, text, sent_embed):
         self.text = text
-        self.sent_embed = sent_embed
+        self.sent_embed = np.array(sent_embed)
         self.kp = []
 
     def add_keyphrase(self, kp, embed, score):
@@ -43,6 +43,10 @@ class Result:
     def __getitem__(self, k):
         return self.kp[k]
 
+    def __iter__(self):
+        yield 'text', self.text
+        yield 'text_embed', self.sent_embed.tolist()
+        yield 'keyphrases', [dict(k) for k in self.kp]
 
 class Keyphrase:
     keyphrase: str
@@ -53,3 +57,8 @@ class Keyphrase:
         self.keyphrase = kp
         self.embed = np.array(embed)
         self.score = score
+
+    def __iter__(self):
+        yield 'kp', self.keyphrase
+        yield 'score', self.score
+        yield 'embed', self.embed.tolist()
