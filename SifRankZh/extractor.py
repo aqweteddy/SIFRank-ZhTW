@@ -16,7 +16,7 @@ class SIFRank:
                  stopword_set=set(),
                  considered_tags={'Na', 'Nb', 'Nc',
                                   'Ncd', 'Nes', 'Ng', 'Nv', 'DE', 'A'},
-                 word_freq_file='./model/dict.txt'
+                 word_freq_file='model/dict.txt'
                  ):
         self.word_embed = pretrained_model
         self.sent_embed = SentEmbedding(self.word_embed,
@@ -29,8 +29,8 @@ class SIFRank:
 
         self.stopword = stopword_set
 
-    def extract_keyphrases(self, 
-                           text: List[str], 
+    def extract_keyphrases(self,
+                           text: List[str],
                            topn: int = 5
                            ) -> List[List[Tuple[str, str]]]:
         """extract keyphrase
@@ -55,7 +55,7 @@ class SIFRank:
             for cand_embed in candidates_embed:
                 score = self.get_cos_dist(sent_embed, cand_embed)
                 candidates_score.append(score)
-
+            
             result = self.reduce_repeat(candidates, candidates_score)
             result = sorted(result, key=lambda x: x[1], reverse=True)
             results.append(result[:topn])
@@ -103,38 +103,31 @@ class SIFRank:
             return None
 
         cand_dict = {}
-        for cand, score in zip(candidates, scores):
-            if not cand in cand_dict.keys():
-                cand_dict[cand[0]] = []
-            cand_dict[cand[0]].append(score)
+        old = dict(map(lambda x, y: (x[0], y), candidates, scores))
 
-        for cand in cand_dict.keys():
-            key = find_sub_str(cand_dict.keys(), cand)
-            if key:
-                cand_dict[key] += cand_dict[cand]
-                cand_dict[cand] = 0.
+        for np, score in sorted(old.items(), key=lambda x: len(x[0]), reverse=True):
+            key = find_sub_str(old.keys(), np)
+            if key is None:
+                cand_dict[np] = score
+            else:
+                if score > old[key]:
+                    cand_dict[np] = score
+                    print(np)
+                    if key in cand_dict.keys():
+                        print(cand_dict[key])
+                        cand_dict.pop(key)
 
-        for cand, score_list in cand_dict.items():
-            if isinstance(cand_dict[cand], int) or not score_list:
-                continue
 
-            if method == 'avg':
-                score = sum(
-                    score_list) if not cand in self.stopword else 0.0
-                cand_dict[cand] = score
-
-            elif method == 'max':
-                score = max(
-                    score_list) if not cand in self.stopword else 0.0
-                cand_dict[cand] = score
         return list(cand_dict.items())
 
     #! args layer_weight not in SIFRank()
     def get_cos_dist(self, sent_embed, kp_embed, layer_weight=[0, 1, 0]):
         score = 0
+        # print(sent_embed[0], kp_embed[0])
         for i in range(3):
-            a, b = sent_embed[i], kp_embed[i]
-            cos_sim = a@b.T / (np.linalg.norm(a) * np.linalg.norm(b))
+            a, b = np.mat(sent_embed[i]), np.mat(kp_embed[i])
+            cos_sim = float(a * b.T) / (np.linalg.norm(a) * np.linalg.norm(b))
+            cos_sim = 0.5 + 0.5 * cos_sim
             score += cos_sim * layer_weight[i]
         return score
 
@@ -152,4 +145,3 @@ class SIFRank:
         token_tag = [list(map(lambda x, y: (x, y), words, tags))
                      for words, tags in zip(sent_word, sent_tag)]
         return sent_word, token_tag
-

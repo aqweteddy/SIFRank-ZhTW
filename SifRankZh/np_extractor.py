@@ -7,7 +7,7 @@ class NPExtractor:
         # default For CKIP
         if grammar is None:
             self.grammar = """  NP:
-        {<A>*<Na|Nb|Nc|Ncd|Nes|Nv|Ng|>{1}<DE>*<Na|Nb|Nc|Ncd|Nes|Nv|Ng>{0,1}} # Adjective(s)(optional) + Noun(s)"""
+        {<A>*<Na|Nb|Nc|Ncd|Nes|Nv|Ng|>{1}<Na|Nb|Nc|Ncd|Nes|Nv|Ng>{0,1}} # Adjective(s)(optional) + Noun(s)"""
         self.np_parser = nltk.RegexpParser(self.grammar)
 
     def extract_list(self, token_tag_list: List[List[Tuple[str]]]):

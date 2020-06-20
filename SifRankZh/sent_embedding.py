@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List, Tuple
 
+
 class SentEmbedding:
     def __init__(self, embeddor, stopword_set: set, considered_tags: set, freq_weight_file: str):
         self.embeddor = embeddor
@@ -9,7 +10,7 @@ class SentEmbedding:
         self.stopword = stopword_set
         self.considered_tags = considered_tags
 
-    def get_sent_np_embedding(self, token_list: List[List[str]], token_tag_list:List[List[Tuple[str, str]]], candidate_list: List[List[Tuple[str, Tuple]]]):
+    def get_sent_np_embedding(self, token_list: List[List[str]], token_tag_list: List[List[Tuple[str, str]]], candidate_list: List[List[Tuple[str, Tuple]]]):
         """batch get sentence embedding and noun phrase embedding
 
         Arguments:
@@ -28,7 +29,6 @@ class SentEmbedding:
 
         sent_embed_list = [self.get_avg_weight(
             token_list[i], token_tag_list[i], weight_list[i], embed[i]) for i in range(len(token_list))]
-
         candidate_embed_list = []
         for i in range(len(candidate_list)):  # iterate article
             candidates_embed = []
@@ -38,6 +38,7 @@ class SentEmbedding:
                 candidates_embed.append(self.get_np_avg_weight(
                     token_list[i], token_tag_list[i], weight_list[i], embed[i], start, end))
             candidate_embed_list.append(candidates_embed)
+        # print(candidate_embed_list)
         return sent_embed_list, candidate_embed_list
 
     def get_words_embedding(self, sent_sep: List[List[str]]):
@@ -51,9 +52,9 @@ class SentEmbedding:
         """
         max_len = max([len(sent) for sent in sent_sep])
         embed = self.embeddor.sents2elmo(sent_sep, output_layer=-2)
-        embed = [np.pad(emb, pad_width=(
+        # print(embed.shape)
+        elmo_embedding = [np.pad(emb, pad_width=(
             (0, 0), (0, max_len-emb.shape[1]), (0, 0)), mode='constant') for emb in embed]
-        embed = np.array(embed)
         return embed
 
     def get_np_avg_weight(self, token, token_tag, sent_weight, embed, start, end):
@@ -71,13 +72,13 @@ class SentEmbedding:
             [num_layer, 1024] -- average weight of noun phrase
         """
         avg = np.zeros((3, 1024))
-        length = len(token)
 
         for i in range(3):
             for j in range(start, end):
                 if token_tag[j][1] in self.considered_tags:  # POS
                     avg[i] += embed[i][j] * sent_weight[j]  # [1024] * [1]
-            avg[i] = avg[i] / float(length)
+            avg[i] = avg[i] / (end-start)
+
         return avg
 
     def get_avg_weight(self, token, token_tag, sent_weight, embed):
@@ -94,12 +95,12 @@ class SentEmbedding:
         """
         avg = np.zeros((3, 1024))
         length = len(token)
-
         for i in range(3):
             for j in range(length):
                 if token_tag[j][1] in self.considered_tags:  # POS
                     avg[i] += embed[i][j] * sent_weight[j]  # [1024] * [1]
             avg[i] = avg[i] / float(length)
+        # print(avg)
         return avg
 
     def get_weight(self, token):
@@ -113,15 +114,17 @@ class SentEmbedding:
         """
         weight_list = []
         for word in token:
-            if word in self.word2weight.keys():
-                weight = self.word2weight[word]
-            elif word in self.stopword:
+
+            if word in self.stopword:
                 weight = 0.0
+            elif word in self.word2weight.keys():
+                weight = self.word2weight[word]
             else:  # OOV
                 weight = 0.0
                 for w in token:
                     weight = max(weight, self.word2weight.get(w, -1))
             weight_list.append(weight)
+        # print(weight_list)
         return weight_list
 
     def load_weight(self, file, weightpara=2.7e-4):
@@ -147,6 +150,7 @@ class SentEmbedding:
         for key, val in word2freq.items():
             word2freq[key] = weightpara / \
                 (weightpara + val / sum_freq)  # word2weight
+        # print(list(word2freq.items())[:10])
         return word2freq
 
     @staticmethod
