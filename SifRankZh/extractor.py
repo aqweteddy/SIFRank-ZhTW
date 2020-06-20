@@ -16,7 +16,7 @@ class SIFRank:
                  stopword_set=set(),
                  considered_tags={'Na', 'Nb', 'Nc',
                                   'Ncd', 'Nes', 'Ng', 'Nv', 'DE', 'A'},
-                 word_freq_file='model/dict.txt'
+                 word_freq_file='data/freq.txt'
                  ):
         self.word_embed = pretrained_model
         self.sent_embed = SentEmbedding(self.word_embed,
@@ -97,26 +97,22 @@ class SIFRank:
     #! args.method not in SIFRank()
     def reduce_repeat(self, candidates, scores, method='avg'):
         def find_sub_str(keys, word):
-            for key in keys:
-                if word != key and word in key:
-                    return key  # found
-            return None
-
+            results = [key for key in keys if word != key and word in key]
+            return results  # found
+        
         cand_dict = {}
         old = dict(map(lambda x, y: (x[0], y), candidates, scores))
-
         for np, score in sorted(old.items(), key=lambda x: len(x[0]), reverse=True):
-            key = find_sub_str(old.keys(), np)
-            if key is None:
+            keys = find_sub_str(old.keys(), np)
+            if not keys:
                 cand_dict[np] = score
             else:
-                if score > old[key]:
-                    cand_dict[np] = score
-                    print(np)
-                    if key in cand_dict.keys():
-                        print(cand_dict[key])
+                for key in keys:
+                    if key in cand_dict.keys() and score >= cand_dict[key]:
+                        cand_dict[np] = score
                         cand_dict.pop(key)
-
+                    elif key not in cand_dict.keys():
+                        cand_dict[np] = score
 
         return list(cand_dict.items())
 
